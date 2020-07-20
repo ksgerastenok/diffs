@@ -16,127 +16,11 @@ function SaveToFile(fname, arr)
 	return 0;
 }
 
-function SQL2ARR(obj)
-{
-	var objRecords, objFields, Records, Fields;
-
-	objRecords = obj;
-
-	Records = new Array();
-	if((!(objRecords.EOF)))
-	{
-		for((objRecords.MoveFirst()); (!(objRecords.EOF)); (objRecords.MoveNext()))
-		{
-			if((Records.length == 0))
-			{
-				objFields = new Enumerator(objRecords.Fields);
-				Fields = new Array();
-				if((!(objFields.atEnd())))
-				{
-					for((objFields.moveFirst()); (!(objFields.atEnd())); (objFields.moveNext()))
-					{
-						Fields.push(objFields.item().Name);
-					}
-				}
-				Records.push(Fields);
-			}
-			if((Records.length != 0))
-			{
-				objFields = new Enumerator(objRecords.Fields);
-				Fields = new Array();
-				if((!(objFields.atEnd())))
-				{
-					for((objFields.moveFirst()); (!(objFields.atEnd())); (objFields.moveNext()))
-					{
-						Fields.push(objFields.item().Value);
-					}
-				}
-				Records.push(Fields);
-			}
-		}
-	}
-
-	return Records;
-}
-
-function ExecSQL(str, sql)
-{
-	var Result, objConn;
-
-	objConn = new ActiveXObject('ADODB.Connection');
-	objConn.Open(str);
-	Result = SQL2ARR(objConn.Execute(sql));
-	objConn.Close();
-
-	return Result;
-}
-
-function getKeyVal(arr)
-{
-	var Result, str, tmp, key, val, i, k;
-
-	Result = new Array();
-
-	for(i in arr)
-	{
-		key = new Array();
-		val = new Array();
-		for(k in arr[i])
-		{
-			str = arr[0][k].split(':');
-			if((i == 0))
-			{
-				tmp = str[1];
-			}
-			if((i != 0))
-			{
-				tmp = arr[i][k];
-			}
-			switch(str[0])
-			{
-				case 'KEY':
-				{
-					key.push(tmp);
-				}
-				break;
-				case 'VALUE':
-				{
-					val.push(tmp);
-				}
-				break;
-			}
-		}
-		tmp = new Array();
-		tmp.push(key.join(';'));
-		tmp.push(val.join(';'));
-		Result.push(tmp.join(':'));
-	}
-
-	return Result;
-}
-
-function getHashSize(arr)
-{
-	var Result, i;
-
-	Result = new Number();
-
-	for(i in arr)
-	{
-		if((arr[i]))
-		{
-			Result += 1;
-		}
-	}
-
-	return Result;
-}
-
-function getCustomSTR(type)
+function getCustomSTR(DB)
 {
 	var Result;
 
-	switch(type)
+	switch(DB)
 	{
 		case 'FRONT':
 		{
@@ -146,6 +30,11 @@ function getCustomSTR(type)
 		case 'BACK':
 		{
 			Result = new String('Provider=MSDAORA;Data Source=(DESCRIPTION = (ADDRESS = (PROTOCOL = TCP) (HOST = osma.cgs.sbrf.ru) (PORT = 1521)) (CONNECT_DATA = (SID = dbdpc)));User ID=wsback;Password=wsback');
+		}
+		break;
+		default:
+		{
+			throw new Error('Unsupported argument passed.');
 		}
 		break;
 	}
@@ -162,69 +51,72 @@ function getCustomSQL(type, vsp)
 //		BASE
 		case 'FORM':
 		{
-			Result = new String('select to_char(trunc(t.day), \'DD.MM.YYYY\') as "KEY:Дата", t.branchno || \'/\' || t.office as "KEY:ВСП счет.", t.kind || \'.\' || t.subkind as "KEY:Вклад", t.currency as "KEY:Валюта", t.branchno || \'/\' || t.office as "VALUE:ВСП счет.", t.kind || \'.\' || t.subkind as "VALUE:Вклад", t.currency as "VALUE:Валюта", trunc(sum(t.outotal), 2) as "VALUE:Сумма", trunc(sum(t.oures), 0) as "VALUE:Количество" from operday.form915 t where(((t.day, t.id_mega) in ((select max(t.day), t.id_mega from operday.form915 t where(((t.day) between (trunc(sysdate, \'YYYY\')) and (trunc(sysdate, \'DD\'))) and ((t.id_mega) in ((52)))) group by(t.id_mega))))) having((not((trunc(sum(t.outotal), 2), trunc(sum(t.oures), 0)) in ((0.00, 0))))) group by(t.day, t.branchno, t.office, t.kind, t.subkind, t.currency)');
+			Result = new String('select to_char(trunc(min(t.day), \'DD\'), \'DD.MM.YYYY\') as "KEY:Дата", t.branchno as "KEY:ОСБ счет.", t.office as "KEY:ВСП счет.", t.kind as "KEY:Вид", t.subkind as "KEY:Подвид", t.currency as "KEY:Валюта", to_char(trunc(min(t.day), \'DD\'), \'DD.MM.YYYY\') as "VAL:Дата", t.branchno as "VAL:ОСБ счет.", t.office as "VAL:ВСП счет.", t.kind as "VAL:Вид", t.subkind as "VAL:Подвид", t.currency as "VAL:Валюта", trunc(sum(t.outotal), 2) as "VAL:Сумма", trunc(sum(t.oures), 0) as "VAL:Количество" from operday.form915 t where(((t.day) between (trunc(sysdate, \'YYYY\')) and (trunc(sysdate, \'DD\'))) and ((t.branchno, t.office, t.kind, t.subkind, t.currency, t.oures, t.outotal) in ((select t.branchno, t.office, t.kind, t.subkind, t.currency, t.oures, t.outotal from operday.form915 t where(((t.day, t.id_mega) in ((select max(t.day), t.id_mega from operday.form915 t where(((t.id_mega) in ((52)))) group by(t.id_mega))))))))) having((not((trunc(sum(t.outotal), 2), trunc(sum(t.oures), 0)) in ((0.00, 0))))) group by(t.branchno, t.office, t.kind, t.subkind, t.currency)');
 		}
 		break;
 		case 'TOTAL':
 		{
-			Result = new String('select to_char(trunc(sysdate, \'YYYY\'), \'DD.MM.YYYY\') as "KEY:Дата", t.branchno || \'/\' || t.office as "KEY:ВСП счет.", t.kind || \'.\' || t.subkind as "KEY:Вклад", t.currency as "KEY:Валюта", t.branchno || \'/\' || t.office as "VALUE:ВСП счет.", t.kind || \'.\' || t.subkind as "VALUE:Вклад", t.currency as "VALUE:Валюта", trunc(sum(t.cash), 2) as "VALUE:Сумма", trunc(sum(t.cnt), 0) as "VALUE:Количество" from depo_stat.officetotal t where((not((t.kind) in ((10)))) and ((t.id_mega) in ((52)))) having((not((trunc(sum(t.cash), 2), trunc(sum(t.cnt), 0)) in ((0.00, 0))))) group by(sysdate, t.branchno, t.office, t.kind, t.subkind, t.currency)');
+			Result = new String('select to_char(trunc(sysdate, \'YYYY\'), \'DD.MM.YYYY\') as "KEY:Дата", t.branchno as "KEY:ОСБ счет.", t.office as "KEY:ВСП счет.", t.kind as "KEY:Вид", t.subkind as "KEY:Подвид", t.currency as "KEY:Валюта", to_char(trunc(sysdate, \'YYYY\'), \'DD.MM.YYYY\') as "VAL:Дата", t.branchno as "VAL:ОСБ счет.", t.office as "VAL:ВСП счет.", t.kind as "VAL:Вид", t.subkind as "VAL:Подвид", t.currency as "VAL:Валюта", trunc(sum(t.cash), 2) as "VAL:Сумма", trunc(sum(t.cnt), 0) as "VAL:Количество" from depo_stat.officetotal t where((not((t.kind) in ((10)))) and ((t.id_mega) in ((52)))) having((not((trunc(sum(t.cash), 2), trunc(sum(t.cnt), 0)) in ((0.00, 0))))) group by(sysdate, t.branchno, t.office, t.kind, t.subkind, t.currency)');
 		}
 		break;
 //		TURN
 		case 'ESK':
 		{
-			Result = new String('select to_char(trunc(t.day), \'DD.MM.YYYY\') as "KEY:Дата", t.branchno || \'/\' || t.office as "KEY:ВСП опер.", t.dbranchno || \'/\' || t.doffice as "KEY:ВСП счет.", t.kind || \'.\' || t.subkind as "KEY:Вклад", t.currency as "KEY:Валюта", t.account as "KEY:Баланс", t.dbranchno || \'/\' || t.doffice as "VALUE:ВСП счет.", t.kind || \'.\' || t.subkind as "VALUE:Вклад", t.currency as "VALUE:Валюта", trunc(sum(t.enrolcash + t.prcntcash), 2) as "VALUE:Приход", trunc(sum(t.payoffcash), 2) as "VALUE:Расход", trunc(sum(0), 0) as "VALUE:Открыто", trunc(sum(t.closecnt), 0) as "VALUE:Закрыто" from depo_stat.eskturn t where(((t.day) between (trunc(sysdate, \'YYYY\')) and (trunc(sysdate, \'DD\'))) and ((t.dbranchno, t.doffice, t.kind, t.subkind, t.currency) in (([BRANCH], [OFFICE], [KIND], [SUBKIND], [CURRENCY]))) and ((t.id_mega) in ((52)))) having((not((trunc(sum(t.enrolcash + t.prcntcash), 2), trunc(sum(t.payoffcash), 2), trunc(sum(0), 0), trunc(sum(t.closecnt), 0)) in ((0, 0, 0, 0))))) group by(t.day, t.branchno, t.office, t.dbranchno, t.doffice, t.kind, t.subkind, t.currency, t.account)');
+			Result = new String('select to_char(trunc(t.day, \'DD\'), \'DD.MM.YYYY\') as "KEY:Дата", t.branchno as "KEY:ОСБ счет.", t.office as "KEY:ВСП опер.", t.dbranchno as "KEY:ОСБ счет.", t.doffice as "KEY:ВСП счет.", t.kind as "KEY:Вид", t.subkind as "KEY:Подвид", t.currency as "KEY:Валюта", t.account as "KEY:Баланс", to_char(trunc(t.day, \'DD\'), \'DD.MM.YYYY\') as "VAL:Дата", t.dbranchno "VAL:ОСБ счет.", t.doffice as "VAL:ВСП счет.", t.kind as "VAL:Вид", t.subkind as "VAL:Подвид", t.currency as "VAL:Валюта", trunc(sum(t.enrolcash + t.prcntcash), 2) as "VAL:Приход", trunc(sum(t.payoffcash), 2) as "VAL:Расход", trunc(sum(0), 0) as "VAL:Открыто", trunc(sum(t.closecnt), 0) as "VAL:Закрыто" from depo_stat.eskturn t where(((t.day) between (trunc(sysdate, \'YYYY\')) and (trunc(sysdate, \'DD\'))) and ((t.dbranchno, t.doffice, t.kind, t.subkind, t.currency) in (([BRANCH], [OFFICE], [KIND], [SUBKIND], [CURRENCY]))) and ((t.id_mega) in ((52)))) having((not((trunc(sum(t.enrolcash + t.prcntcash), 2), trunc(sum(t.payoffcash), 2), trunc(sum(0), 0), trunc(sum(t.closecnt), 0)) in ((0.00, 0.00, 0, 0))))) group by(t.day, t.day, t.branchno, t.office, t.dbranchno, t.doffice, t.kind, t.subkind, t.currency, t.account)');
 		}
 		break;
 		case 'MCG':
 		{
-			Result = new String('select to_char(trunc(t.day), \'DD.MM.YYYY\') as "KEY:Дата", t.branchno || \'/\' || t.office as "KEY:ВСП опер.", t.dbranchno || \'/\' || t.doffice as "KEY:ВСП счет.", t.kind || \'.\' || t.subkind as "KEY:Вклад", t.currency as "KEY:Валюта", t.account as "KEY:Баланс", t.dbranchno || \'/\' || t.doffice as "VALUE:ВСП счет.", t.kind || \'.\' || t.subkind as "VALUE:Вклад", t.currency as "VALUE:Валюта", trunc(sum(t.enrolcash + t.prcntcash), 2) as "VALUE:Приход", trunc(sum(t.payoffcash), 2) as "VALUE:Расход", trunc(sum(0), 0) as "VALUE:Открыто", trunc(sum(t.closecnt), 0) as "VALUE:Закрыто" from depo_stat.mcgturn t where(((t.day) between (trunc(sysdate, \'YYYY\')) and (trunc(sysdate, \'DD\'))) and ((t.dbranchno, t.doffice, t.kind, t.subkind, t.currency) in (([BRANCH], [OFFICE], [KIND], [SUBKIND], [CURRENCY]))) and ((t.id_mega) in ((52)))) having((not((trunc(sum(t.enrolcash + t.prcntcash), 2), trunc(sum(t.payoffcash), 2), trunc(sum(0), 0), trunc(sum(t.closecnt), 0)) in ((0, 0, 0, 0))))) group by(t.day, t.branchno, t.office, t.dbranchno, t.doffice, t.kind, t.subkind, t.currency, t.account)');
+			Result = new String('select to_char(trunc(t.day, \'DD\'), \'DD.MM.YYYY\') as "KEY:Дата", t.branchno as "KEY:ОСБ счет.", t.office as "KEY:ВСП опер.", t.dbranchno as "KEY:ОСБ счет.", t.doffice as "KEY:ВСП счет.", t.kind as "KEY:Вид", t.subkind as "KEY:Подвид", t.currency as "KEY:Валюта", t.account as "KEY:Баланс", to_char(trunc(t.day, \'DD\'), \'DD.MM.YYYY\') as "VAL:Дата", t.dbranchno "VAL:ОСБ счет.", t.doffice as "VAL:ВСП счет.", t.kind as "VAL:Вид", t.subkind as "VAL:Подвид", t.currency as "VAL:Валюта", trunc(sum(t.enrolcash + t.prcntcash), 2) as "VAL:Приход", trunc(sum(t.payoffcash), 2) as "VAL:Расход", trunc(sum(0), 0) as "VAL:Открыто", trunc(sum(t.closecnt), 0) as "VAL:Закрыто" from depo_stat.mcgturn t where(((t.day) between (trunc(sysdate, \'YYYY\')) and (trunc(sysdate, \'DD\'))) and ((t.dbranchno, t.doffice, t.kind, t.subkind, t.currency) in (([BRANCH], [OFFICE], [KIND], [SUBKIND], [CURRENCY]))) and ((t.id_mega) in ((52)))) having((not((trunc(sum(t.enrolcash + t.prcntcash), 2), trunc(sum(t.payoffcash), 2), trunc(sum(0), 0), trunc(sum(t.closecnt), 0)) in ((0.00, 0.00, 0, 0))))) group by(t.day, t.day, t.branchno, t.office, t.dbranchno, t.doffice, t.kind, t.subkind, t.currency, t.account)');
 		}
 		break;
 		case 'SYNC':
 		{
-			Result = new String('select to_char(trunc(t.day), \'DD.MM.YYYY\') as "KEY:Дата", t.branchno || \'/\' || t.office as "KEY:ВСП опер.", t.dbranchno || \'/\' || t.doffice as "KEY:ВСП счет.", t.kind || \'.\' || t.subkind as "KEY:Вклад", t.currency as "KEY:Валюта", t.account as "KEY:Баланс", t.dbranchno || \'/\' || t.doffice as "VALUE:ВСП счет.", t.kind || \'.\' || t.subkind as "VALUE:Вклад", t.currency as "VALUE:Валюта", trunc(sum(t.enrolcash + t.prcntcash), 2) as "VALUE:Приход", trunc(sum(t.payoffcash), 2) as "VALUE:Расход", trunc(sum(t.opencnt), 0) as "VALUE:Открыто", trunc(sum(t.closecnt), 0) as "VALUE:Закрыто" from depo_stat.syncturn t where(((t.day) between (trunc(sysdate, \'YYYY\')) and (trunc(sysdate, \'DD\'))) and ((t.dbranchno, t.doffice, t.kind, t.subkind, t.currency) in (([BRANCH], [OFFICE], [KIND], [SUBKIND], [CURRENCY]))) and ((t.id_mega) in ((52)))) having((not((trunc(sum(t.enrolcash + t.prcntcash), 2), trunc(sum(t.payoffcash), 2), trunc(sum(t.opencnt), 0), trunc(sum(t.closecnt), 0)) in ((0, 0, 0, 0))))) group by(t.day, t.branchno, t.office, t.dbranchno, t.doffice, t.kind, t.subkind, t.currency, t.account)');
+			Result = new String('select to_char(trunc(t.day, \'DD\'), \'DD.MM.YYYY\') as "KEY:Дата", t.branchno as "KEY:ОСБ счет.", t.office as "KEY:ВСП опер.", t.dbranchno as "KEY:ОСБ счет.", t.doffice as "KEY:ВСП счет.", t.kind as "KEY:Вид", t.subkind as "KEY:Подвид", t.currency as "KEY:Валюта", t.account as "KEY:Баланс", to_char(trunc(t.day, \'DD\'), \'DD.MM.YYYY\') as "VAL:Дата", t.dbranchno "VAL:ОСБ счет.", t.doffice as "VAL:ВСП счет.", t.kind as "VAL:Вид", t.subkind as "VAL:Подвид", t.currency as "VAL:Валюта", trunc(sum(t.enrolcash + t.prcntcash), 2) as "VAL:Приход", trunc(sum(t.payoffcash), 2) as "VAL:Расход", trunc(sum(t.opencnt), 0) as "VAL:Открыто", trunc(sum(t.closecnt), 0) as "VAL:Закрыто" from depo_stat.syncturn t where(((t.day) between (trunc(sysdate, \'YYYY\')) and (trunc(sysdate, \'DD\'))) and ((t.dbranchno, t.doffice, t.kind, t.subkind, t.currency) in (([BRANCH], [OFFICE], [KIND], [SUBKIND], [CURRENCY]))) and ((t.id_mega) in ((52)))) having((not((trunc(sum(t.enrolcash + t.prcntcash), 2), trunc(sum(t.payoffcash), 2), trunc(sum(t.opencnt), 0), trunc(sum(t.closecnt), 0)) in ((0.00, 0.00, 0, 0))))) group by(t.day, t.day, t.branchno, t.office, t.dbranchno, t.doffice, t.kind, t.subkind, t.currency, t.account)');
 		}
 		break;
 		case 'OFFICE':
 		{
-			Result = new String('select to_char(trunc(t.day), \'DD.MM.YYYY\') as "KEY:Дата", t.branchno || \'/\' || t.office as "KEY:ВСП опер.", t.branchno || \'/\' || t.office as "KEY:ВСП счет.", t.kind || \'.\' || t.subkind as "KEY:Вклад", t.currency as "KEY:Валюта", t.account as "KEY:Баланс", t.branchno || \'/\' || t.office as "VALUE:ВСП счет.", t.kind || \'.\' || t.subkind as "VALUE:Вклад", t.currency as "VALUE:Валюта", trunc(sum(t.incashin + t.offcashin + t.prcntcash), 2) as "VALUE:Приход", trunc(sum(t.incashou + t.offcashou), 2) as "VALUE:Расход", trunc(sum(t.opencnt), 0) as "VALUE:Открыто", trunc(sum(t.closecnt), 0) as "VALUE:Закрыто" from depo_stat.officeturn t where(((t.day) between (trunc(sysdate, \'YYYY\')) and (trunc(sysdate, \'DD\'))) and ((t.branchno, t.office, t.kind, t.subkind, t.currency) in (([BRANCH], [OFFICE], [KIND], [SUBKIND], [CURRENCY]))) and ((t.id_mega) in ((52)))) having((not((trunc(sum(t.incashin + t.offcashin + t.prcntcash), 2), trunc(sum(t.incashou + t.offcashou), 2), trunc(sum(t.opencnt), 0), trunc(sum(t.closecnt), 0)) in ((0, 0, 0, 0))))) group by(t.day, t.branchno, t.office, t.branchno, t.office, t.kind, t.subkind, t.currency, t.account)');
+			Result = new String('select to_char(trunc(t.day, \'DD\'), \'DD.MM.YYYY\') as "KEY:Дата", t.branchno as "KEY:ОСБ счет.", t.office as "KEY:ВСП опер.", t.branchno as "KEY:ОСБ счет.", t.office as "KEY:ВСП счет.", t.kind as "KEY:Вид", t.subkind as "KEY:Подвид", t.currency as "KEY:Валюта", t.account as "KEY:Баланс", to_char(trunc(t.assignday, \'DD\'), \'DD.MM.YYYY\') as "VAL:Дата", t.branchno "VAL:ОСБ счет.", t.office as "VAL:ВСП счет.", t.kind as "VAL:Вид", t.subkind as "VAL:Подвид", t.currency as "VAL:Валюта", trunc(sum(t.incashin + t.offcashin + t.prcntcash), 2) as "VAL:Приход", trunc(sum(t.incashou + t.offcashou), 2) as "VAL:Расход", trunc(sum(t.opencnt), 0) as "VAL:Открыто", trunc(sum(t.closecnt), 0) as "VAL:Закрыто" from depo_stat.officeturn t where(((t.day) between (trunc(sysdate, \'YYYY\')) and (trunc(sysdate, \'DD\'))) and ((t.branchno, t.office, t.kind, t.subkind, t.currency) in (([BRANCH], [OFFICE], [KIND], [SUBKIND], [CURRENCY]))) and ((t.id_mega) in ((52)))) having((not((trunc(sum(t.incashin + t.offcashin + t.prcntcash), 2), trunc(sum(t.incashou + t.offcashou), 2), trunc(sum(t.opencnt), 0), trunc(sum(t.closecnt), 0)) in ((0.00, 0.00, 0, 0))))) group by(t.day, t.assignday, t.branchno, t.office, t.branchno, t.office, t.kind, t.subkind, t.currency, t.account)');
 		}
 		break;
 		case 'OFFCASH':
 		{
-			Result = new String('select to_char(trunc(t.day), \'DD.MM.YYYY\') as "KEY:Дата", t.branchno || \'/\' || t.office as "KEY:ВСП опер.", t.dbranchno || \'/\' || t.doffice as "KEY:ВСП счет.", t.kind || \'.\' || t.subkind as "KEY:Вклад", t.currency as "KEY:Валюта", t.account as "KEY:Баланс", t.dbranchno || \'/\' || t.doffice as "VALUE:ВСП счет.", t.kind || \'.\' || t.subkind as "VALUE:Вклад", t.currency as "VALUE:Валюта", trunc(sum(t.enrolcash + t.prcntcash), 2) as "VALUE:Приход", trunc(sum(t.payoffcash), 2) as "VALUE:Расход", trunc(sum(0), 0) as "VALUE:Открыто", trunc(sum(t.closecnt), 0) as "VALUE:Закрыто" from depo_stat.offcashturn t where(((t.day) between (trunc(sysdate, \'YYYY\')) and (trunc(sysdate, \'DD\'))) and ((t.dbranchno, t.doffice, t.kind, t.subkind, t.currency) in (([BRANCH], [OFFICE], [KIND], [SUBKIND], [CURRENCY]))) and ((t.id_mega) in ((52)))) having((not((trunc(sum(t.enrolcash + t.prcntcash), 2), trunc(sum(t.payoffcash), 2), trunc(sum(0), 0), trunc(sum(t.closecnt), 0)) in ((0, 0, 0, 0))))) group by(t.day, t.branchno, t.office, t.dbranchno, t.doffice, t.kind, t.subkind, t.currency, t.account)');
+			Result = new String('select to_char(trunc(t.day, \'DD\'), \'DD.MM.YYYY\') as "KEY:Дата", t.branchno as "KEY:ОСБ счет.", t.office as "KEY:ВСП опер.", t.dbranchno as "KEY:ОСБ счет.", t.doffice as "KEY:ВСП счет.", t.kind as "KEY:Вид", t.subkind as "KEY:Подвид", t.currency as "KEY:Валюта", t.account as "KEY:Баланс", to_char(trunc(t.day, \'DD\'), \'DD.MM.YYYY\') as "VAL:Дата", t.dbranchno "VAL:ОСБ счет.", t.doffice as "VAL:ВСП счет.", t.kind as "VAL:Вид", t.subkind as "VAL:Подвид", t.currency as "VAL:Валюта", trunc(sum(t.enrolcash + t.prcntcash), 2) as "VAL:Приход", trunc(sum(t.payoffcash), 2) as "VAL:Расход", trunc(sum(t.opencnt), 0) as "VAL:Открыто", trunc(sum(t.closecnt), 0) as "VAL:Закрыто" from depo_stat.offcashturn t where(((t.day) between (trunc(sysdate, \'YYYY\')) and (trunc(sysdate, \'DD\'))) and ((t.dbranchno, t.doffice, t.kind, t.subkind, t.currency) in (([BRANCH], [OFFICE], [KIND], [SUBKIND], [CURRENCY]))) and ((t.id_mega) in ((52)))) having((not((trunc(sum(t.enrolcash + t.prcntcash), 2), trunc(sum(t.payoffcash), 2), trunc(sum(0), 0), trunc(sum(t.closecnt), 0)) in ((0.00, 0.00, 0, 0))))) group by(t.day, t.day, t.branchno, t.office, t.dbranchno, t.doffice, t.kind, t.subkind, t.currency, t.account)');
 		}
 		break;
 		case 'MOFFICE':
 		{
-			Result = new String('select to_char(trunc(t.day), \'DD.MM.YYYY\') as "KEY:Дата", t.branchno || \'/\' || t.office as "KEY:ВСП опер.", t.dbranchno || \'/\' || t.doffice as "KEY:ВСП счет.", t.kind || \'.\' || t.subkind as "KEY:Вклад", t.currency as "KEY:Валюта", t.account as "KEY:Баланс", t.dbranchno || \'/\' || t.doffice as "VALUE:ВСП счет.", t.kind || \'.\' || t.subkind as "VALUE:Вклад", t.currency as "VALUE:Валюта", trunc(sum(t.pairoffcashin + t.pairprcntcash), 2) as "VALUE:Приход", trunc(sum(t.pairoffcashou), 2) as "VALUE:Расход", trunc(sum(0), 0) as "VALUE:Открыто", trunc(sum(t.closecnt), 0) as "VALUE:Закрыто" from depo_stat.mofficeturn t where(((t.day) between (trunc(sysdate, \'YYYY\')) and (trunc(sysdate, \'DD\'))) and ((t.dbranchno, t.doffice, t.kind, t.subkind, t.currency) in (([BRANCH], [OFFICE], [KIND], [SUBKIND], [CURRENCY]))) and ((t.id_mega) in ((52)))) having((not((trunc(sum(t.pairoffcashin + t.pairprcntcash), 2), trunc(sum(t.pairoffcashou), 2), trunc(sum(0), 0), trunc(sum(t.closecnt), 0)) in ((0, 0, 0, 0))))) group by(t.day, t.branchno, t.office, t.dbranchno, t.doffice, t.kind, t.subkind, t.currency, t.account)');
+			Result = new String('select to_char(trunc(t.day, \'DD\'), \'DD.MM.YYYY\') as "KEY:Дата", t.branchno as "KEY:ОСБ счет.", t.office as "KEY:ВСП опер.", t.dbranchno as "KEY:ОСБ счет.", t.doffice as "KEY:ВСП счет.", t.kind as "KEY:Вид", t.subkind as "KEY:Подвид", t.currency as "KEY:Валюта", t.account as "KEY:Баланс", to_char(trunc(t.day, \'DD\'), \'DD.MM.YYYY\') as "VAL:Дата", t.dbranchno "VAL:ОСБ счет.", t.doffice as "VAL:ВСП счет.", t.kind as "VAL:Вид", t.subkind as "VAL:Подвид", t.currency as "VAL:Валюта", trunc(sum(t.pairoffcashin + t.pairprcntcash), 2) as "VAL:Приход", trunc(sum(t.pairoffcashou), 2) as "VAL:Расход", trunc(sum(t.opcnt), 0) as "VAL:Открыто", trunc(sum(t.closecnt), 0) as "VAL:Закрыто" from depo_stat.mofficeturn t where(((t.day) between (trunc(sysdate, \'YYYY\')) and (trunc(sysdate, \'DD\'))) and ((t.dbranchno, t.doffice, t.kind, t.subkind, t.currency) in (([BRANCH], [OFFICE], [KIND], [SUBKIND], [CURRENCY]))) and ((t.id_mega) in ((52)))) having((not((trunc(sum(t.pairoffcashin + t.pairprcntcash), 2), trunc(sum(t.pairoffcashou), 2), trunc(sum(0), 0), trunc(sum(t.closecnt), 0)) in ((0.00, 0.00, 0, 0))))) group by(t.day, t.day, t.branchno, t.office, t.dbranchno, t.doffice, t.kind, t.subkind, t.currency, t.account)');
 		}
 		break;
 		case 'SOFFICE':
 		{
-			Result = new String('select to_char(trunc(t.day), \'DD.MM.YYYY\') as "KEY:Дата", t.branchno || \'/\' || t.soffice as "KEY:ВСП опер.", t.dbranchno || \'/\' || t.doffice as "KEY:ВСП счет.", t.kind || \'.\' || t.subkind as "KEY:Вклад", t.currency as "KEY:Валюта", t.account as "KEY:Баланс", t.dbranchno || \'/\' || t.doffice as "VALUE:ВСП счет.", t.kind || \'.\' || t.subkind as "VALUE:Вклад", t.currency as "VALUE:Валюта", trunc(sum(t.cash), 2) as "VALUE:Приход", trunc(sum(t.cash), 2) as "VALUE:Расход", trunc(sum(t.cnt), 0) as "VALUE:Открыто", trunc(sum(t.closecnt), 0) as "VALUE:Закрыто" from depo_stat.officesplitturn t where(((t.day) between (trunc(sysdate, \'YYYY\')) and (trunc(sysdate, \'DD\'))) and ((t.dbranchno, t.doffice, t.kind, t.subkind, t.currency) in (([BRANCH], [OFFICE], [KIND], [SUBKIND], [CURRENCY]))) and ((t.id_mega) in ((52)))) having((not((trunc(sum(t.cash), 2), trunc(sum(t.cash), 2), trunc(sum(t.cnt), 0), trunc(sum(t.closecnt), 0)) in ((0, 0, 0, 0))))) group by(t.day, t.branchno, t.soffice, t.dbranchno, t.doffice, t.kind, t.subkind, t.currency, t.account)');
+			Result = new String('select to_char(trunc(t.day, \'DD\'), \'DD.MM.YYYY\') as "KEY:Дата", t.branchno as "KEY:ОСБ счет.", t.soffice as "KEY:ВСП опер.", t.dbranchno as "KEY:ОСБ счет.", t.doffice as "KEY:ВСП счет.", t.kind as "KEY:Вид", t.subkind as "KEY:Подвид", t.currency as "KEY:Валюта", t.account as "KEY:Баланс", to_char(trunc(t.day, \'DD\'), \'DD.MM.YYYY\') as "VAL:Дата", t.dbranchno "VAL:ОСБ счет.", t.doffice as "VAL:ВСП счет.", t.kind as "VAL:Вид", t.subkind as "VAL:Подвид", t.currency as "VAL:Валюта", trunc(sum(t.cash), 2) as "VAL:Приход", trunc(sum(t.cash), 2) as "VAL:Расход", trunc(sum(t.cnt), 0) as "VAL:Открыто", trunc(sum(t.closecnt), 0) as "VAL:Закрыто" from depo_stat.officesplitturn t where(((t.day) between (trunc(sysdate, \'YYYY\')) and (trunc(sysdate, \'DD\'))) and ((t.dbranchno, t.doffice, t.kind, t.subkind, t.currency) in (([BRANCH], [OFFICE], [KIND], [SUBKIND], [CURRENCY]))) and ((t.id_mega) in ((52)))) having((not((trunc(sum(t.cash), 2), trunc(sum(t.cash), 2), trunc(sum(t.cnt), 0), trunc(sum(t.closecnt), 0)) in ((0.00, 0.00, 0, 0))))) group by(t.day, t.day, t.branchno, t.soffice, t.dbranchno, t.doffice, t.kind, t.subkind, t.currency, t.account)');
 		}
 		break;
 		case 'CAPITAL':
 		{
-			Result = new String('select to_char(trunc(t.day), \'DD.MM.YYYY\') as "KEY:Дата", t.branchno || \'/\' || t.office as "KEY:ВСП опер.", t.dbranchno || \'/\' || t.doffice as "KEY:ВСП счет.", t.kind || \'.\' || t.subkind as "KEY:Вклад", t.currency as "KEY:Валюта", t.account as "KEY:Баланс", t.dbranchno || \'/\' || t.doffice as "VALUE:ВСП счет.", t.kind || \'.\' || t.subkind as "VALUE:Вклад", t.currency as "VALUE:Валюта", trunc(sum(t.incash + t.prcntcash), 2) as "VALUE:Приход", trunc(sum(t.outcash), 2) as "VALUE:Расход", trunc(sum(0), 0) as "VALUE:Открыто", trunc(sum(0), 0) as "VALUE:Закрыто" from depo_stat.capitalturn t where(((t.day) between (trunc(sysdate, \'YYYY\')) and (trunc(sysdate, \'DD\'))) and ((t.dbranchno, t.doffice, t.kind, t.subkind, t.currency) in (([BRANCH], [OFFICE], [KIND], [SUBKIND], [CURRENCY]))) and ((t.id_mega) in ((52)))) having((not((trunc(sum(t.incash + t.prcntcash), 2), trunc(sum(t.outcash), 2), trunc(sum(0), 0), trunc(sum(0), 0)) in ((0, 0, 0, 0))))) group by(t.day, t.branchno, t.office, t.dbranchno, t.doffice, t.kind, t.subkind, t.currency, t.account)');
+			Result = new String('select to_char(trunc(t.day, \'DD\'), \'DD.MM.YYYY\') as "KEY:Дата", t.branchno as "KEY:ОСБ счет.", t.office as "KEY:ВСП опер.", t.dbranchno as "KEY:ОСБ счет.", t.doffice as "KEY:ВСП счет.", t.kind as "KEY:Вид", t.subkind as "KEY:Подвид", t.currency as "KEY:Валюта", t.account as "KEY:Баланс", to_char(trunc(t.day, \'DD\'), \'DD.MM.YYYY\') as "VAL:Дата", t.dbranchno "VAL:ОСБ счет.", t.doffice as "VAL:ВСП счет.", t.kind as "VAL:Вид", t.subkind as "VAL:Подвид", t.currency as "VAL:Валюта", trunc(sum(t.incash + t.prcntcash), 2) as "VAL:Приход", trunc(sum(t.outcash), 2) as "VAL:Расход", trunc(sum(0), 0) as "VAL:Открыто", trunc(sum(0), 0) as "VAL:Закрыто" from depo_stat.capitalturn t where(((t.day) between (trunc(sysdate, \'YYYY\')) and (trunc(sysdate, \'DD\'))) and ((t.dbranchno, t.doffice, t.kind, t.subkind, t.currency) in (([BRANCH], [OFFICE], [KIND], [SUBKIND], [CURRENCY]))) and ((t.id_mega) in ((52)))) having((not((trunc(sum(t.incash + t.prcntcash), 2), trunc(sum(t.outcash), 2), trunc(sum(0), 0), trunc(sum(0), 0)) in ((0.00, 0.00, 0, 0))))) group by(t.day, t.day, t.branchno, t.office, t.dbranchno, t.doffice, t.kind, t.subkind, t.currency, t.account)');
 		}
 		break;
 		case 'PROLONG':
 		{
-			Result = new String('select to_char(trunc(t.day), \'DD.MM.YYYY\') as "KEY:Дата", t.branchno || \'/\' || t.office as "KEY:ВСП опер.", t.dbranchno || \'/\' || t.doffice as "KEY:ВСП счет.", t.kind || \'.\' || t.subkind as "KEY:Вклад", t.currency as "KEY:Валюта", t.account as "KEY:Баланс", t.dbranchno || \'/\' || t.doffice as "VALUE:ВСП счет.", t.kind || \'.\' || t.subkind as "VALUE:Вклад", t.currency as "VALUE:Валюта", trunc(sum(t.incash + t.prcntcash), 2) as "VALUE:Приход", trunc(sum(t.outcash), 2) as "VALUE:Расход", trunc(sum(0), 0) as "VALUE:Открыто", trunc(sum(0), 0) as "VALUE:Закрыто" from depo_stat.prolongturn t where(((t.day) between (trunc(sysdate, \'YYYY\')) and (trunc(sysdate, \'DD\'))) and ((t.dbranchno, t.doffice, t.kind, t.subkind, t.currency) in (([BRANCH], [OFFICE], [KIND], [SUBKIND], [CURRENCY]))) and ((t.id_mega) in ((52)))) having((not((trunc(sum(t.incash + t.prcntcash), 2), trunc(sum(t.outcash), 2), trunc(sum(0), 0), trunc(sum(0), 0)) in ((0, 0, 0, 0))))) group by(t.day, t.branchno, t.office, t.dbranchno, t.doffice, t.kind, t.subkind, t.currency, t.account)');
+			Result = new String('select to_char(trunc(t.day, \'DD\'), \'DD.MM.YYYY\') as "KEY:Дата", t.branchno as "KEY:ОСБ счет.", t.office as "KEY:ВСП опер.", t.dbranchno as "KEY:ОСБ счет.", t.doffice as "KEY:ВСП счет.", t.kind as "KEY:Вид", t.subkind as "KEY:Подвид", t.currency as "KEY:Валюта", t.account as "KEY:Баланс", to_char(trunc(t.day, \'DD\'), \'DD.MM.YYYY\') as "VAL:Дата", t.dbranchno "VAL:ОСБ счет.", t.doffice as "VAL:ВСП счет.", t.kind as "VAL:Вид", t.subkind as "VAL:Подвид", t.currency as "VAL:Валюта", trunc(sum(t.incash + t.prcntcash), 2) as "VAL:Приход", trunc(sum(t.outcash), 2) as "VAL:Расход", trunc(sum(0), 0) as "VAL:Открыто", trunc(sum(0), 0) as "VAL:Закрыто" from depo_stat.prolongturn t where(((t.day) between (trunc(sysdate, \'YYYY\')) and (trunc(sysdate, \'DD\'))) and ((t.dbranchno, t.doffice, t.kind, t.subkind, t.currency) in (([BRANCH], [OFFICE], [KIND], [SUBKIND], [CURRENCY]))) and ((t.id_mega) in ((52)))) having((not((trunc(sum(t.incash + t.prcntcash), 2), trunc(sum(t.outcash), 2), trunc(sum(0), 0), trunc(sum(0), 0)) in ((0.00, 0.00, 0, 0))))) group by(t.day, t.day, t.branchno, t.office, t.dbranchno, t.doffice, t.kind, t.subkind, t.currency, t.account)');
 		} 
 		break;
 //		ACCOUNT
 		case 'ACCOUNT':
 		{
-			Result = new String('select substr(t.printableno, 1, 8) || \'x\' || substr(t.printableno, 10, 11) as "KEY:Номер счета", t.account as "KEY:Баланс", to_char(trunc(t.opday), \'DD.MM.YYYY\') as "VALUE:Дата опер.", t.branchno || \'/\' || t.office as "VALUE:ВСП счет.", t.kind || \'.\' || t.subkind as "VALUE:Вклад", t.currency as "VALUE:Валюта", trunc(sum(decode(t.opno, 0, 1, t.opno)), 0) as "VALUE:Номер опер.", trunc(sum(t.opcash), 2) as "VALUE:Сумма", trunc(sum(t.balance), 2) as "VALUE:Остаток", trunc(sum(decode(t.state, 4, 0, 5, 0, t.state)), 0) as "VALUE:Статус" from deposit.deposit t where(((t.opday) between (to_date(\'01.01.1600\', \'DD.MM.YYYY\')) and (to_date(sysdate, \'DD.MM.YYYY\'))) and ((t.branchno, t.office, t.kind, t.subkind, t.currency) in (([BRANCH], [OFFICE], [KIND], [SUBKIND], [CURRENCY]))) and ((t.id_mega) in ((52)))) group by(t.printableno, t.account, t.opday, t.branchno, t.office, t.kind, t.subkind, t.currency)');
+			Result = new String('select substr(t.printableno, 1, 8) || \'x\' || substr(t.printableno, 10, 11) as "KEY:Номер счета", t.account as "KEY:Баланс", to_char(trunc(t.opday, \'DD\'), \'DD.MM.YYYY\') as "VAL:Дата опер.", t.branchno as "VAL:ОСБ счет.", t.office as "VAL:ВСП счет.", t.kind as "VAL:Вид", t.subkind as "VAL:Подвид", t.currency as "VAL:Валюта", trunc(sum(decode(t.opno, 0, 1, t.opno)), 0) as "VAL:Номер опер.", trunc(sum(t.opcash), 2) as "VAL:Сумма", trunc(sum(t.balance), 2) as "VAL:Остаток", trunc(sum(decode(t.state, 4, 0, 5, 0, t.state)), 0) as "VAL:Статус" from deposit.deposit t where(((t.opday) between (trunc(sysdate - 110000, \'YYYY\')) and (trunc(sysdate, \'DD\'))) and ((t.branchno, t.office, t.kind, t.subkind, t.currency) in (([BRANCH], [OFFICE], [KIND], [SUBKIND], [CURRENCY]))) and ((t.id_mega) in ((52)))) group by(t.printableno, t.account, t.opday, t.branchno, t.office, t.kind, t.subkind, t.currency)');
+		}
+		break;
+		default:
+		{
+			throw new Error('Unsupported argument passed.');
 		}
 		break;
 	}
-	vsp = vsp.replace('/', ';');
-	vsp = vsp.replace('.', ';');
 	arr = vsp.split(';');
 	Result = Result.replace('[BRANCH]', arr[1-1]);
 	Result = Result.replace('[OFFICE]', arr[2-1]);
@@ -235,73 +127,174 @@ function getCustomSQL(type, vsp)
 	return Result;
 }
 
+function getCustomData(DB, type, vsp)
+{
+	var Result, objConn, objRecords, objFields, data, arr;
+
+	Result = new Array();
+
+	objConn = new ActiveXObject('ADODB.Connection');
+	objConn.Open(getCustomSTR(DB));
+	objRecords = objConn.Execute(getCustomSQL(type, vsp));
+	if((!(objRecords.EOF)))
+	{
+		for((objRecords.MoveFirst()); (!(objRecords.EOF)); (objRecords.MoveNext()))
+		{
+			objFields = new Enumerator(objRecords.Fields);
+			if((!(objFields.atEnd())))
+			{
+				data = new Array();
+				data['KEY'] = new Array();
+				data['KEY']['REST'] = new Array();
+				data['KEY']['HEAD'] = new Array();
+				data['KEY']['DATA'] = new Array();
+				data['VAL'] = new Array();
+				data['VAL']['REST'] = new Array();
+				data['VAL']['HEAD'] = new Array();
+				data['VAL']['DATA'] = new Array();
+				for((objFields.moveFirst()); (!(objFields.atEnd())); (objFields.moveNext()))
+				{
+					arr = objFields.item().Name.split(':');
+					switch(arr[0])
+					{
+						case 'KEY':
+						{
+							data['KEY']['HEAD'].push(arr[1]);
+							data['KEY']['DATA'].push(objFields.item().Value);
+						}
+						break;
+						case 'VAL':
+						{
+							data['VAL']['HEAD'].push(arr[1]);
+							data['VAL']['DATA'].push(objFields.item().Value);
+						}
+						break;
+						default:
+						{
+							throw new Error('Unsupported argument passed.');
+						}
+						break;
+					}
+				}
+				data['KEY']['REST'].push(data['KEY']['HEAD'].join(';'));
+				data['KEY']['REST'].push(data['KEY']['DATA'].join(';'));
+				data['VAL']['REST'].push(data['VAL']['HEAD'].join(';'));
+				data['VAL']['REST'].push(data['VAL']['DATA'].join(';'));
+				Result[data['KEY']['REST'].join(':')] = data['VAL']['REST'].join(':')
+			}
+		}
+	}
+	objConn.Close();
+
+	return Result;
+}
+
 function getCustomDiffs(type, vsp)
 {
-	var Result, DB, sql, str, tmp, arr, key, val, hd, kv, i, k;
+	var Result, DB, flag, data, arr, tmp, flt, i, k, m;
+
+	Result = new Array();
 
 	DB = new Array('FRONT', 'BACK');
 
-	arr = new Array();
+	data = new Array();
 	for(i in DB)
 	{
-		str = getCustomSTR(DB[i]);
-		sql = getCustomSQL(type, vsp);
-		tmp = getKeyVal(ExecSQL(str, sql));
-		for(k in tmp)
+		arr = getCustomData(DB[i], type, vsp);
+		for(k in arr)
 		{
-			if((k == 0))
+			if((!(data[k])))
 			{
-				hd = tmp[k].split(':');
+				data[k] = new Array();
 			}
-			if((k != 0))
+			data[k][i] = arr[k];
+		}
+	}
+
+	arr = new Array();
+	for(k in data)
+	{
+		for(m in data[k])
+		{
+			for(i in DB)
 			{
-				kv = tmp[k].split(':');
-				if((!(arr[kv[1-1]])))
+				if((!(data[k][i])))
 				{
-					arr[kv[1-1]] = new Array();
+					flt = new Array();
+					tmp = data[k][m].split(':');
+					flt.push(tmp[0]);
+					tmp = new String();
+					flt.push(tmp);
+					data[k][i] = flt.join(':');
 				}
-				arr[kv[1-1]][i] = kv[2-1];
+			}
+		}
+		for(i in DB)
+		{
+			flag = 0;
+			for(m in data[k])
+			{
+				if((!(data[k][m] == data[k][i])))
+				{
+					flag = 1;
+				}
+			}
+			if((!(flag == 0)))
+			{
+				if((!(arr[k])))
+				{
+					arr[k] = new Array();
+				}
+				arr[k][i] = data[k][i];
 			}
 		}
 	}
 
-	Result = new Array();
 	for(k in arr)
 	{
-		tmp = new Array();
-		for(i in DB)
+		for(i in arr[k])
 		{
-			if((!(arr[k][i])))
+			tmp = arr[k][i].split(':');
+			for(m in tmp)
 			{
-				arr[k][i] = new String();
+				flt = new Array();
+				flt = tmp[m].split(';');
+				if(((m % 2) == 0))
+				{
+					flt.reverse();
+					flt.push('Система');
+					flt.reverse();
+				}
+				else
+				{
+					flt.reverse();
+					flt.push(DB[i]);
+					flt.reverse();
+				}
+				tmp[m] = flt.join(';');
 			}
-			tmp[arr[k][i]] = k + i;
+			arr[k][i] = tmp.join(':');
 		}
-		if((getHashSize(tmp) != 1))
+		tmp = k.split(':');
+		for(m in tmp)
 		{
-			key = new Array();
-			tmp = new Array();
-			tmp.push('Тип');
-			tmp.push(hd[1-1]);
-			key.push(tmp.join(';'));
-			tmp = new Array();
-			tmp.push(type);
-			tmp.push(k);
-			key.push(tmp.join(';'));
-			val = new Array();
-			tmp = new Array();
-			tmp.push('Система');
-			tmp.push(hd[2-1]);
-			val.push(tmp.join(';'));
-			for(i in DB)
+			flt = new Array();
+			flt = tmp[m].split(';');
+			if(((m % 2) == 0))
 			{
-				tmp = new Array();
-				tmp.push(DB[i]);
-				tmp.push(arr[k][i]);
-				val.push(tmp.join(';'));
+				flt.reverse();
+				flt.push('Тип');
+				flt.reverse();
 			}
-			Result[key.join(':')] = val.join(':');
+			else
+			{
+				flt.reverse();
+				flt.push(type);
+				flt.reverse();
+			}
+			tmp[m] = flt.join(';');
 		}
+		Result[tmp.join(':')] = arr[k].join(':');
 	}
 
 	return Result;
@@ -331,12 +324,12 @@ function getCommonDiffs(type, vsp)
 	}
 
 	Result = new Array();
-	for(k in types)
+	for(i in types)
 	{
-		diffs = getCustomDiffs(types[k], vsp);
-		for(i in diffs)
+		diffs = getCustomDiffs(types[i], vsp);
+		for(k in diffs)
 		{
-			Result[i] = diffs[i];
+			Result[k] = diffs[k];
 		}
 	}
 
@@ -345,7 +338,7 @@ function getCommonDiffs(type, vsp)
 
 function getVSPList(diffs)
 {
-	var Result, arr, tmp, str, i, k;
+	var Result, arr, i;
 
 	Result = new Array();
 	for(i in diffs)
@@ -376,6 +369,7 @@ function makeHTML(diffs, FileName)
 	content.push('<body>');
 	for(i in diffs)
 	{
+		values = i.split(':');
 		content.push('<table>');
 		content.push('<tr>');
 		content.push('<td>');
@@ -383,37 +377,42 @@ function makeHTML(diffs, FileName)
 		content.push('<tr>');
 		content.push('<td>');
 		content.push('<table border=1 cellpadding=3 cellspacing=0>');
-		values = i.split(':');
 		for(k in values)
 		{
-			content.push('<tr>');
-			items = values[k].split(';');
-			for(m in items)
+			if((!((k % 2) == 0)) || ((k == 0)))
 			{
-				content.push('<th>');
-				content.push(items[m]);
-				content.push('</th>');
+				items = values[k].split(';');
+				content.push('<tr>');
+				for(m in items)
+				{
+					content.push('<th>');
+					content.push(items[m]);
+					content.push('</th>');
+				}
+				content.push('</tr>');
 			}
-			content.push('</tr>');
 		}
 		content.push('</table>');
 		content.push('</td>');
 		content.push('</tr>');
+		values = diffs[i].split(':');
 		content.push('<tr>');
 		content.push('<td>');
 		content.push('<table border=1 cellpadding=3 cellspacing=0>');
-		values = diffs[i].split(':');
 		for(k in values)
 		{
-			content.push('<tr>');
-			items = values[k].split(';');
-			for(m in items)
+			if((!((k % 2) == 0)) || ((k == 0)))
 			{
-				content.push('<th>');
-				content.push(items[m]);
-				content.push('</th>');
+				items = values[k].split(';');
+				content.push('<tr>');
+				for(m in items)
+				{
+					content.push('<th>');
+					content.push(items[m]);
+					content.push('</th>');
+				}
+				content.push('</tr>');
 			}
-			content.push('</tr>');
 		}
 		content.push('</table>');
 		content.push('</td>');
@@ -473,7 +472,6 @@ function Main()
 
 	return 0;
 }
-
 
 {
 	Main();
